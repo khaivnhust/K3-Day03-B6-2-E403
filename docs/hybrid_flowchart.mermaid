@@ -1,0 +1,33 @@
+%% 🔀 HYBRID DECISION FLOWCHART — Trợ lý Tư vấn Khóa học Coursera
+%% Thể hiện khi nào đi Chatbot path, khi nào đi ReAct Agent path.
+flowchart TD
+    A([👤 Câu hỏi người dùng]) --> B{Cần dữ liệu thật / hành động?<br/>khóa học cụ thể, hồ sơ học viên,<br/>đăng ký, đánh giá tải học tập}
+
+    %% ---------- CHATBOT PATH ----------
+    B -- "KHÔNG<br/>(kiến thức chung)" --> C[💬 CHATBOT PATH<br/>CHATBOT_BASELINE_PROMPT]
+    C --> C1[LLM trả lời trực tiếp<br/>❌ không gọi tool<br/>🛡️ cấm bịa khóa học/giá]
+    C1 --> Z([🏁 Trả lời người dùng])
+
+    %% ---------- REACT PATH ----------
+    B -- "CÓ<br/>(cần tra cứu/thao tác)" --> D[🤖 REACT AGENT PATH<br/>REACT_SYSTEM_PROMPT]
+    D --> E[🧠 Thought: suy luận bước kế]
+    E --> F[🛠️ Action: tool_name-tham_so-]
+    F --> G[["🔧 Thực thi tool<br/>search_coursera_catalog (API THẬT)<br/>get_user_coursera_profile<br/>match_coursera_skill_gap<br/>get_coursera_specialization_details<br/>register_coursera_enrollment<br/>open_coursera_enrollment_page"]]
+    G --> H[👁️ Observation: kết quả tool]
+
+    H --> GR{🛡️ GUARDRAILS}
+    GR -- "Observation = LỖI /<br/>yêu cầu vô lý" --> X[Dừng lịch sự,<br/>KHÔNG bịa, KHÔNG đăng ký]
+    GR -- "Lặp Action trùng<br/>hoặc Step > MAX_ITERATIONS=8" --> X
+    X --> Z
+
+    GR -- "OK, chưa đủ thông tin" --> E
+    GR -- "OK, đã đủ thông tin" --> Y[🏁 Final Answer<br/>tổng hợp từ Observations]
+    Y --> Z
+
+    %% ---------- Styles ----------
+    classDef chat fill:#e3f2fd,stroke:#1976d2,color:#0d47a1;
+    classDef react fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+    classDef guard fill:#fff3e0,stroke:#ef6c00,color:#e65100;
+    class C,C1 chat;
+    class D,E,F,G,H,Y react;
+    class GR,X guard;

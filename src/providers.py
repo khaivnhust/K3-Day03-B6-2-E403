@@ -156,7 +156,9 @@ class MockProvider(BaseLLMProvider):
                     "Final Answer: [Mock] Dựa trên kết quả tra cứu ở trên, đây là tư vấn khóa học phù hợp cho bạn.")
 
         # Bước đầu tiên: chọn công cụ theo nội dung câu hỏi
-        uid_match = re.search(r"user[_a-z0-9]+", ql)
+        # Ưu tiên mã học viên dạng USER_CS_9921 / USER_UNKNOWN_9999 (có đuôi số),
+        # tránh bắt nhầm chữ "user_id" trong câu hỏi.
+        uid_match = re.search(r"user_[a-z]+_\d+", ql)
         if uid_match or "hồ sơ" in ql or "đăng ký" in ql or "trình độ" in ql or "kỹ năng" in ql:
             uid = uid_match.group(0).upper() if uid_match else "USER_CS_9921"
             return (f"Thought: Cần xác thực hồ sơ học viên trước khi tư vấn/đăng ký.\n"

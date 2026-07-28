@@ -1,0 +1,10 @@
+{
+  "token_type": "Bearer",
+  "access_token": "le2KLOTc8i3FrtCDuRlnA9pAWRys",
+  "grant_type": "client_credentials",
+  "issued_at_timestamp": 1785212955,
+  "issued_at_time": "2026-07-28 11:29:15",
+  "expires_in_seconds": 1799,
+  "expires_at_timestamp": 1785214754,
+  "expires_at_time": "2026-07-28 11:59:14"
+}
