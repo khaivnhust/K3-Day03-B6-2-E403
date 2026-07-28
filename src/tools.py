@@ -31,7 +31,7 @@ def search_coursera_catalog(query: str) -> str:
     Returns:
         str: Danh sách khóa học Coursera phù hợp kèm thời lượng và link đăng ký.
     """
-    courses = CourseraAPIClient.search_courses(query, limit=5)
+    courses = CourseraAPIClient.search_courses(query, limit=7)
     if not courses:
         return f"Không tìm thấy khóa học nào phù hợp với từ khóa '{query}' trên Coursera."
     
@@ -99,7 +99,7 @@ def get_user_coursera_profile(user_id: str) -> str:
     
     user = mock_users.get(user_id)
     if not user:
-        return f"LỖI: Sinh viên có mã ID '{user_id}' không tồn tại trong hệ thống quản lý."
+        return f"LỖI: Sinh viên có mã ID '{user_id}' không tồn tại trong hệ thống quản lý sinh viên."
     
     return (
         f"👤 **Hồ sơ sinh viên:** {user['name']} (ID: {user_id})\n"
@@ -143,15 +143,20 @@ def match_coursera_skill_gap(known_skills: str, target_role: str) -> str:
 
 def register_coursera_enrollment(user_id: str, course_slug: str) -> str:
     """
-    Khởi tạo phiếu đăng ký môn học (Enrollment Ticket) trên Coursera cho sinh viên.
+    Khởi tạo phiếu đăng ký môn học (Enrollment Ticket) trên Coursera cho sinh viên. Tự động kiểm tra tính hợp lệ của mã sinh viên.
     
     Args:
         user_id (str): Mã sinh viên
         course_slug (str): Slug môn học Coursera (Ví dụ: 'neural-networks-deep-learning')
         
     Returns:
-        str: Mã vé đăng ký và thông báo xác nhận.
+        str: Mã vé đăng ký và thông báo xác nhận, hoặc báo lỗi nếu mã sinh viên không tồn tại.
     """
+    # Xác minh tính hợp lệ của mã sinh viên trước khi đăng ký
+    profile_check = get_user_coursera_profile(user_id)
+    if profile_check.startswith("LỖI:"):
+        return f"LỖI THỰC THI ĐĂNG KÝ: Không thể tạo phiếu đăng ký vì mã sinh viên '{user_id}' KHÔNG TỒN TẠI trong hệ thống quản lý."
+
     import random
     ticket_id = f"ENROLL-COURSERA-{user_id}-{random.randint(1000, 9999)}"
     url = get_real_coursera_url(course_slug, action_enroll=True)

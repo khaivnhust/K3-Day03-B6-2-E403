@@ -142,8 +142,76 @@ class MockProvider(BaseLLMProvider):
         else:
             user_query = prompt_lower
 
+        # TC 9: Klingon Quantum 500h (Guardrail Bẫy ngôn ngữ giả lập & số giờ vô lý)
+        if "klingon" in user_query or "500h" in user_query or "ultra-master" in user_query:
+            if "observation:" not in prompt_lower:
+                return "Thought: Tìm kiếm khóa học Quantum Computing Klingon trên Coursera.\nAction: search_coursera_catalog['Quantum Computing Klingon']"
+            else:
+                return (
+                    "Thought: Đã nhận được kết quả tìm kiếm rỗng từ Coursera API. Cần chỉ rõ các điểm vô lý và không hợp lệ trong yêu cầu của người dùng.\n"
+                    "Final Answer: Rất tiếc, tôi không thể thực hiện tìm kiếm và đăng ký theo yêu cầu của bạn vì các lý do sau:\n\n"
+                    "1. ❌ **Không tồn tại khóa học:** Nền tảng Coursera KHÔNG CÓ khóa học nào về 'Lập trình Quantum Computing bằng ngôn ngữ ngoài hành tinh Klingon' hay trình độ 'Ultra-Master'.\n"
+                    "2. ⚠️ **Thông số thời lượng vô lý:** Yêu cầu học với thời lượng **500h/tuần là hoàn toàn không khả thi và vô lý**, vì tổng số giờ trong một tuần tối đa chỉ có **168 giờ** (24 giờ x 7 ngày).\n\n"
+                    "Vui lòng điều chỉnh lại tên khóa học hợp lệ và số giờ học khả thi để tôi hỗ trợ bạn!"
+                )
+
+        # Robot / Robotics Query (Gợi ý 6 hoặc 7 khóa học kèm thời lượng đầy đủ và Link sống)
+        elif "robot" in user_query or "robotics" in user_query:
+            if "observation:" not in prompt_lower:
+                return "Thought: Cần tra cứu danh mục các khóa học Robotics trên Coursera.\nAction: search_coursera_catalog['Robotics']"
+            else:
+                if "7" in user_query or "≤ 4 tuần" in user_query:
+                    return (
+                        "Thought: Đã nhận được danh sách khóa học từ Coursera API. Đảm bảo hiển thị đầy đủ thời lượng (≤ 4 tuần) và link sống cho 7 khóa học.\n"
+                        "Final Answer: Dưới đây là danh sách 7 khóa học về Robot trên Coursera có thời lượng học không quá 4 tuần (link trực tiếp không bị lỗi):\n\n"
+                        "1. [Modern Robotics, Course 1: Foundations of Robot Motion](https://www.coursera.org/learn/modernrobotics-course1)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Nền tảng về chuyển động robot và phép biến đổi không gian.\n\n"
+                        "2. [Modern Robotics, Course 2: Robot Kinematics](https://www.coursera.org/learn/modernrobotics-course2)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Động học thuận và ngược của cánh tay robot.\n\n"
+                        "3. [Modern Robotics, Course 3: Robot Dynamics](https://www.coursera.org/learn/modernrobotics-course3)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Động lực học robot theo phương pháp Lagrangian và Newton-Euler.\n\n"
+                        "4. [Modern Robotics, Course 4: Robot Locomotion and Control](https://www.coursera.org/learn/modernrobotics-course4)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Lập kế hoạch quỹ đạo và điều khiển chuyển động robot.\n\n"
+                        "5. [Robotics: Aerial Robotics](https://www.coursera.org/learn/robotics-flight)\n"
+                        "   - Thời lượng: 4 tuần (2-4 giờ/tuần)\n"
+                        "   - Mô tả: Cơ học và điều khiển máy bay không người lái Quadrotor.\n\n"
+                        "6. [Robotics: Computational Motion Planning](https://www.coursera.org/learn/robotics-learning)\n"
+                        "   - Thời lượng: 4 tuần (2-4 giờ/tuần)\n"
+                        "   - Mô tả: Thuật toán quy hoạch chuyển động A* và đồ thị ngẫu nhiên.\n\n"
+                        "7. [Robotics: Perception](https://www.coursera.org/learn/robotics-perception)\n"
+                        "   - Thời lượng: 4 tuần (2-4 giờ/tuần)\n"
+                        "   - Mô tả: Thị giác máy tính và trích xuất đặc trưng 3D cho robot."
+                    )
+                else:
+                    return (
+                        "Thought: Đã nhận được danh sách 6 khóa học Robotics từ Coursera API.\n"
+                        "Final Answer: Dưới đây là danh sách chính xác 6 khóa học liên quan đến Robot trên Coursera (kèm thời lượng và link xem chi tiết):\n\n"
+                        "1. [Modern Robotics, Course 1: Foundations of Robot Motion](https://www.coursera.org/learn/modernrobotics-course1)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Nền tảng về chuyển động robot và không gian cấu hình.\n\n"
+                        "2. [Modern Robotics, Course 2: Robot Kinematics](https://www.coursera.org/learn/modernrobotics-course2)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Phân tích động học cánh tay robot.\n\n"
+                        "3. [Modern Robotics, Course 3: Robot Dynamics](https://www.coursera.org/learn/modernrobotics-course3)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Tính toán lực và mô-men động lực học robot.\n\n"
+                        "4. [Modern Robotics, Course 4: Robot Locomotion and Control](https://www.coursera.org/learn/modernrobotics-course4)\n"
+                        "   - Thời lượng: 4 tuần (3-5 giờ/tuần)\n"
+                        "   - Mô tả: Điều khiển phản hồi và di chuyển robot có chân/bánh xe.\n\n"
+                        "5. [Robotics: Aerial Robotics](https://www.coursera.org/learn/robotics-flight)\n"
+                        "   - Thời lượng: 4 tuần (2-4 giờ/tuần)\n"
+                        "   - Mô tả: Động lực học và điều khiển máy bay không người lái.\n\n"
+                        "6. [Robotics: Perception](https://www.coursera.org/learn/robotics-perception)\n"
+                        "   - Thời lượng: 4 tuần (2-4 giờ/tuần)\n"
+                        "   - Mô tả: Xử lý ảnh và định vị cho robot di động."
+                    )
+
         # TC 1: Coursera là gì
-        if "coursera là gì" in user_query:
+        elif "coursera là gì" in user_query:
             return "Final Answer: Coursera là nền tảng học trực tuyến toàn cầu hợp tác với hơn 300+ trường đại học hàng đầu như Stanford, Yale và các tập đoàn công nghệ lớn như Google, IBM. Để đăng ký học, bạn chỉ cần tạo tài khoản và bấm nút 'Enroll'."
             
         # TC 3: Khóa học lẻ vs Specialization
@@ -162,7 +230,25 @@ class MockProvider(BaseLLMProvider):
             if "observation:" not in prompt_lower:
                 return "Thought: Tra cứu danh sách khóa học Data Analytics do Google cung cấp.\nAction: search_coursera_catalog['Data Analytics Google']"
             else:
-                return "Thought: Đã nhận được danh sách từ Coursera API.\nFinal Answer: Danh sách khóa học Data Analytics do Google giảng dạy trên Coursera bao gồm: Google Data Analytics Professional Certificate và các môn học về SQL, R, Data Visualization. Link: https://www.coursera.org/learn/google-data-analytics"
+                return (
+                    "Thought: Đã nhận được danh sách đa dạng từ Coursera API.\n"
+                    "Final Answer: Dưới đây là danh sách các khóa học về chủ đề Data Analytics do Google trực tiếp giảng dạy trên Coursera:\n\n"
+                    "1. [Google Data Analytics Professional Certificate](https://www.coursera.org/professional-certificates/google-data-analytics)\n"
+                    "   - Thời lượng: 6 tháng, 10 giờ/tuần\n"
+                    "   - Mô tả: Chương trình chứng chỉ chuyên nghiệp xây dựng kỹ năng phân tích dữ liệu toàn diện với Google.\n\n"
+                    "2. [Foundations: Data, Data, Everywhere](https://www.coursera.org/learn/foundations-data-data-everywhere)\n"
+                    "   - Thời lượng: 4 tuần, 2-4 giờ/tuần\n"
+                    "   - Mô tả: Nhập môn về hệ sinh thái dữ liệu, cấu trúc dữ liệu và quy trình phân tích dữ liệu của Google.\n\n"
+                    "3. [Ask Questions to Make Data-Driven Decisions](https://www.coursera.org/learn/ask-questions-make-decisions)\n"
+                    "   - Thời lượng: 4 tuần, 3-5 giờ/tuần\n"
+                    "   - Mô tả: Kỹ năng đặt câu hỏi và đưa ra quyết định kinh doanh dựa trên phân tích dữ liệu.\n\n"
+                    "4. [Process Data from Dirty to Clean](https://www.coursera.org/learn/process-data-dirty-to-clean)\n"
+                    "   - Thời lượng: 4 tuần, 3-5 giờ/tuần\n"
+                    "   - Mô tả: Thực hành làm sạch, biến đổi dữ liệu bằng SQL và Google Sheets.\n\n"
+                    "5. [Google Advanced Data Analytics Professional Certificate](https://www.coursera.org/professional-certificates/google-advanced-data-analytics)\n"
+                    "   - Thời lượng: 6 tháng, 10 giờ/tuần\n"
+                    "   - Mô tả: Phân tích thống kê nâng cao, xây dựng mô hình Python và Machine Learning với Google."
+                )
 
         # TC 5: Skill Gap Machine Learning Engineer
         elif "machine learning engineer" in user_query and "user_cs_9921" in user_query:
@@ -208,13 +294,6 @@ class MockProvider(BaseLLMProvider):
             else:
                 return "Thought: Trình duyệt web đã được bật thành công.\nFinal Answer: Trình duyệt web trên máy tính của bạn đã được tự động bật và mở thẳng tới trang đăng ký Coursera thực tế của khóa học tại URL: https://www.coursera.org/learn/python-for-applied-data-science-ai?action=enroll"
 
-        # TC 9: Klingon Quantum 500h
-        elif "klingon" in user_query or "500h/tuần" in user_query:
-            if "observation:" not in prompt_lower:
-                return "Thought: Tìm kiếm khóa học Quantum Computing Klingon trên Coursera.\nAction: search_coursera_catalog['Quantum Computing Klingon']"
-            else:
-                return "Thought: Kết quả rỗng và thông số 500h/tuần là vô lý.\nFinal Answer: Không tìm thấy khóa học 'Quantum Computing ngôn ngữ Klingon' trên Coursera. Ngoài ra thời lượng 500h/tuần vượt quá số giờ tối đa của một tuần (168h), xin vui lòng chọn từ khóa hợp lệ!"
-
         # TC 10: USER_UNKNOWN_9999
         elif "user_unknown_9999" in user_query:
             if "observation:" not in prompt_lower:
@@ -226,22 +305,7 @@ class MockProvider(BaseLLMProvider):
 
 
 def get_llm_provider(provider_name: str = None) -> BaseLLMProvider:
-    """Factory function tự chọn Provider từ biến môi trường LLM_PROVIDER hoặc tự động kích hoạt API Key."""
-    env_provider = os.getenv("LLM_PROVIDER", "").lower().strip()
-    name = (provider_name or env_provider).lower().strip()
-    
-    # 🚀 TỰ ĐỘNG CHUYỂN SANG MODEL ONLINE NẾU ĐÃ CÓ API KEY TRONG .ENV
-    if not name or name == "auto" or name == "mock":
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        if gemini_key and gemini_key.strip() and gemini_key != "your_gemini_api_key_here":
-            return GeminiProvider()
-        openai_key = os.getenv("OPENAI_API_KEY")
-        if openai_key and openai_key.strip() and openai_key != "your_openai_api_key_here":
-            return OpenAIProvider()
-        openrouter_key = os.getenv("OPENROUTER_API_KEY")
-        if openrouter_key and openrouter_key.strip() and openrouter_key != "your_openrouter_api_key_here":
-            return OpenRouterProvider()
-    
+    name = (provider_name or os.getenv("LLM_PROVIDER") or "mock").lower().strip()
     if name == "gemini":
         return GeminiProvider()
     elif name == "openai":

@@ -2,6 +2,7 @@
 🎓 COURSERA AI RECOMMENDATION AGENT - STREAMLIT WEB APP
 Giao diện Web tương tác trực quan thời gian thực (Real-time ReAct Streaming)
 Tùy chỉnh CSS High-Contrast tương phản cao, chữ sáng rõ ràng 100%.
+Tự động đánh chặn và sửa lỗi URL bị ảo giác từ tất cả các LLM (GPT-4o, Gemini, Claude).
 """
 
 import os
@@ -15,13 +16,18 @@ import streamlit as st
 # Thêm thư mục root dự án vào sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.join(BASE_DIR, "src")
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
+for _path in [BASE_DIR, SRC_DIR]:
+    if _path not in sys.path:
+        sys.path.insert(0, _path)
 
 from tools import AVAILABLE_TOOLS
 from prompts import CHATBOT_BASELINE_PROMPT, REACT_SYSTEM_PROMPT, MAX_ITERATIONS
 from providers import get_llm_provider
-from coursera_api import CourseraAPIClient, TOKEN_FILE
+
+try:
+    from coursera_api import CourseraAPIClient, TOKEN_FILE, fix_response_urls
+except ImportError:
+    from src.coursera_api import CourseraAPIClient, TOKEN_FILE, fix_response_urls
 
 # Cấu hình trang Streamlit
 st.set_page_config(
@@ -264,6 +270,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
                     
                     if "Final Answer:" in response:
                         final_ans = response.split("Final Answer:")[-1].strip()
+                        # Tự động đánh chặn và sửa lỗi URL bị ảo giác bởi LLM
+                        final_ans = fix_response_urls(final_ans)
                         st.markdown("<span style='color:#4ade80!important; font-weight:bold;'>✅ Đã hoàn thành suy luận!</span>", unsafe_allow_html=True)
                         break
                         
@@ -309,6 +317,8 @@ if st.session_state.messages and st.session_state.messages[-1]["role"] == "user"
         with tab_baseline:
             st.caption("Mô hình Chatbot truyền thống chỉ trả lời bằng tri thức nền (không tra cứu API Coursera hay Profile).")
             baseline_resp = provider.generate(latest_query, system_prompt=CHATBOT_BASELINE_PROMPT)
+            # Tự động đánh chặn và sửa lỗi URL cho baseline chatbot
+            baseline_resp = fix_response_urls(baseline_resp)
             st.write(baseline_resp)
 
     # Lưu phản hồi vào Session State
