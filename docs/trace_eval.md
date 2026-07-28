@@ -7,11 +7,11 @@
 
 | Tiêu chí | Điểm (1-5) | Lý do đánh giá |
 | :--- | :---: | :--- |
-| 🧠 **Multi-step Reasoning** | `4/5` | Cần suy luận từ tra cứu thời tiết đến chọn trang phục. |
-| 🛠️ **Tool Interaction** | `5/5` | Cần tra cứu dữ liệu thời gian thực qua API thời tiết/chuyến bay. |
-| 🔀 **Dynamic Decision** | `4/5` | Kết quả bước trước quyết định hành động bước sau. |
-| ⏳ **Long Horizon** | `3/5` | Quy trình gồm 2-3 bước xử lý ngắn. |
-| **TỔNG ĐIỂM FIT** | **16/20** | **KẾT LUẬN: BÀI TOÁN RẤT NÊN DÙNG REACT AGENT!** |
+| 🧠 **Multi-step Reasoning** | `4/5` | Cần phân tích nhu cầu/mục tiêu nghề nghiệp của sinh viên, xác định các kỹ năng cần cải thiện và nâng cao, từ đó suy luận ra lộ trình học tập phù hợp gồm nhiều khóa nối tiếp nhau. |
+| 🛠️ **Tool Interaction** | `5/5` | Tương tác liên tục với các API của các web khóa học để search/filter khóa học theo từ khóa, độ khó, thời lượng, rating và truy vấn nội dung chi tiết của từng khóa. |
+| 🔀 **Dynamic Decision** | `5/5` | Kết quả trả về từ API (ví dụ: khóa học quá nâng cao hoặc hết thời lượng cho phép) sẽ quyết định việc Agent tiếp tục nới lỏng bộ lọc hay truy vấn thêm các khóa học bổ trợ cơ bản khác. |
+| ⏳ **Long Horizon** | `3/5` | Quy trình gồm 3-4 bước truy vấn và tổng hợp lộ trình phản hồi ngay cho sinh viên, không để workflow kéo quá dài do dùng nhiều tools nhưng không đạt được kết quả mong muốn. |
+| **TỔNG ĐIỂM FIT** | **17/20** | **KẾT LUẬN: BÀI TOÁN RẤT NÊN DÙNG REACT AGENT!** |
 
 ---
 
