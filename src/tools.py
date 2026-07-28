@@ -2,7 +2,7 @@
 🛠️ TOOL REGISTRY & SCHEMAS (Dành cho Role 2: Tool & Spec Engineer)
 Nơi khai báo tất cả các "món đồ nghề" mà ReAct Agent có thể gọi.
 """
-
+"sth"
 def get_weather(location: str) -> str:
     """
     Tra cứu thời tiết hiện tại của một thành phố.
