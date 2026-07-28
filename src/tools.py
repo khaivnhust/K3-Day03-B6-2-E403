@@ -1,203 +1,237 @@
 """
 🛠️ TOOL REGISTRY & SCHEMAS (Dành cho Role 2: Tool & Spec Engineer)
-Nơi khai báo tất cả các "món đồ nghề" mà ReAct Agent có thể gọi.
+Trợ lý Tư vấn Khóa học Coursera — bộ công cụ cho ReAct Agent.
+
+Chiến lược dữ liệu HYBRID:
+- `search_coursera_catalog` gọi Coursera Catalog API THẬT (public, không cần token),
+  tự động fallback về danh mục mẫu khi offline / lỗi mạng.
+- Các tool hồ sơ học viên, đánh giá lộ trình, đăng ký... dùng dữ liệu mô phỏng
+  (Coursera Partner API cần hợp đồng doanh nghiệp nên không dùng ở lab này).
 """
 
 import os
+import webbrowser
 
-import requests
 from dotenv import load_dotenv
+
+from coursera_api import CourseraAPIClient
 
 load_dotenv()
 
-# Dữ liệu học viên được giữ ở dạng mẫu local, chỉ phục vụ demo cho app cá nhân.
-CURRENT_STUDENT = {
-    "student_id": "SV001",
-    "name": "Nguyễn An",
-    "major": "Công nghệ thông tin",
-    "year": 2,
-    "gpa": 3.4,
-    "credits": 78,
-    "courses": ["CS101", "CS201", "MATH101"],
-    "advisor": "TS. Minh"
+# =============================================================================
+# DỮ LIỆU MÔ PHỎNG (MOCK) — hồ sơ học viên & danh mục dự phòng
+# =============================================================================
+# Học viên hợp lệ duy nhất cho demo (đồng bộ với config/test_cases.json).
+LEARNER_DB = {
+    "USER_CS_9921": {
+        "user_id": "USER_CS_9921",
+        "name": "Nguyễn An",
+        "goal": "Machine Learning Engineer",
+        "current_level": "Beginner",
+        "current_skills": ["Python cơ bản", "Toán cao cấp"],
+        "hours_per_week": 5,
+        "completed_courses": ["Python for Everybody"],
+    }
 }
 
-def get_weather(location: str) -> str:
+# Danh mục dự phòng khi Coursera API không truy cập được (offline demo).
+FALLBACK_CATALOG = {
+    "python": [
+        "Python for Everybody — University of Michigan",
+        "Crash Course on Python — Google",
+        "Python for Data Science and AI — IBM",
+    ],
+    "data": [
+        "Google Data Analytics Professional Certificate — Google",
+        "Data Science Fundamentals — IBM",
+        "Data Analysis with Python — University of Michigan",
+    ],
+    "ai": [
+        "AI For Everyone — DeepLearning.AI",
+        "Generative AI for Everyone — DeepLearning.AI",
+        "Neural Networks and Deep Learning — DeepLearning.AI",
+    ],
+    "machine learning": [
+        "Machine Learning Specialization — DeepLearning.AI",
+        "Neural Networks and Deep Learning — DeepLearning.AI",
+    ],
+}
+
+# Chi tiết một số Specialization (mô phỏng khối lượng học tập).
+SPECIALIZATION_DB = {
+    "ibm data science specialization": {
+        "name": "IBM Data Science Specialization",
+        "num_courses": 12,
+        "total_hours": 120,
+        "level": "Beginner",
+    },
+    "deep learning specialization": {
+        "name": "Deep Learning Specialization",
+        "num_courses": 5,
+        "total_hours": 100,
+        "level": "Intermediate",
+    },
+}
+
+
+def search_coursera_catalog(query: str) -> str:
     """
-    Tra cứu thời tiết hiện tại của một thành phố.
+    Tra cứu khóa học trên Coursera Catalog API (dữ liệu THẬT, có fallback mẫu).
 
     Args:
-        location (str): Tên thành phố (Ví dụ: 'Hà Nội', 'TP.HCM', 'Đà Nẵng')
+        query (str): Từ khóa/chủ đề cần tìm (Ví dụ: 'Data Analytics Google', 'Python').
 
     Returns:
-        str: Thông tin thời tiết chi tiết
+        str: Danh sách khóa học tìm được, hoặc thông báo không tìm thấy.
     """
-    loc_lower = location.lower()
-    if "hà nội" in loc_lower or "ha noi" in loc_lower:
-        return "Thời tiết Hà Nội: 28°C, Nắng nhẹ, Độ ẩm 65%."
-    elif "hồ chí minh" in loc_lower or "tp.hcm" in loc_lower or "hcm" in loc_lower:
-        return "Thời tiết TP.HCM: 33°C, Nắng nóng, Có mây."
-    elif "đà nẵng" in loc_lower or "da nang" in loc_lower:
-        return "Thời tiết Đà Nẵng: 30°C, Gió nhẹ, Mát mẻ."
-    else:
-        return f"LỖI: Không tìm thấy dữ liệu thời tiết cho địa điểm '{location}'."
+    query = (query or "").strip()
+    if not query:
+        return "LỖI: Thiếu từ khóa tìm kiếm."
+
+    # 1) Ưu tiên gọi Coursera Catalog API thật
+    try:
+        results = CourseraAPIClient.search_courses(query=query, limit=5)
+    except Exception as e:  # noqa: BLE001 - tool không được phép crash Agent
+        results = []
+        print(f"⚠️ search_coursera_catalog: lỗi gọi API thật ({e}), dùng fallback.")
+
+    if results:
+        lines = [f"- {c.get('name', 'N/A')} (slug: {c.get('slug', 'n/a')})" for c in results]
+        return f"[Coursera API] Kết quả cho '{query}':\n" + "\n".join(lines)
+
+    # 2) Fallback danh mục mẫu theo chủ đề
+    q_lower = query.lower()
+    for key, courses in FALLBACK_CATALOG.items():
+        if key in q_lower:
+            body = "\n".join(f"- {c}" for c in courses)
+            return f"[Danh mục mẫu] Khóa học Coursera cho '{query}':\n{body}"
+
+    return f"LỖI: Không tìm thấy khóa học Coursera nào khớp với '{query}'."
 
 
-def search_flights(origin: str, destination: str) -> str:
+def get_user_coursera_profile(user_id: str) -> str:
     """
-    Tra cứu chuyến bay giữa hai địa điểm.
+    Lấy hồ sơ học tập của học viên (mục tiêu, trình độ, kỹ năng, quỹ thời gian).
 
     Args:
-        origin (str): Nơi đi (Ví dụ: 'TP.HCM')
-        destination (str): Nơi đến (Ví dụ: 'Hà Nội')
+        user_id (str): Mã học viên (Ví dụ: 'USER_CS_9921').
 
     Returns:
-        str: Danh sách chuyến bay khả dụng và giá vé
+        str: Thông tin hồ sơ, hoặc lỗi nếu không tìm thấy học viên.
     """
+    user = LEARNER_DB.get((user_id or "").strip().upper())
+    if not user:
+        return f"LỖI: Không tìm thấy học viên với mã '{user_id}'."
     return (
-        f"Chuyến bay từ {origin} -> {destination} ngày mai:\n"
-        f"1. VN123 (08:00) - Giá: 1,500,000 VNĐ (Còn vé)\n"
-        f"2. VJ456 (14:30) - Giá: 1,200,000 VNĐ (Còn vé)"
-    )
-
-def get_student_profile(student_id: str) -> str:
-    """
-    Lấy thông tin cơ bản của học viên hiện tại trong app.
-
-    Args:
-        student_id (str): Mã số sinh viên cần truy vấn (Ví dụ: 'SV001')
-
-    Returns:
-        str: Thông tin hồ sơ học viên như tên, ngành, năm học và cố vấn học tập
-    """
-    if student_id.upper() != CURRENT_STUDENT["student_id"]:
-        return f"LỖI: Chỉ hỗ trợ xem thông tin cho học viên hiện tại '{CURRENT_STUDENT['student_id']}'."
-
-    student = CURRENT_STUDENT
-    return (
-        f"Học viên {student['student_id']}: {student['name']}, ngành {student['major']}, "
-        f"năm học {student['year']}, cố vấn {student['advisor']}."
-    )
-
-
-def get_student_academic_status(student_id: str) -> str:
-    """
-    Lấy trạng thái học tập của học viên hiện tại trong app.
-
-    Args:
-        student_id (str): Mã số sinh viên cần truy vấn (Ví dụ: 'SV001')
-
-    Returns:
-        str: Điểm trung bình, số tín chỉ và các môn đang học
-    """
-    if student_id.upper() != CURRENT_STUDENT["student_id"]:
-        return f"LỖI: Chỉ hỗ trợ xem thông tin cho học viên hiện tại '{CURRENT_STUDENT['student_id']}'."
-
-    student = CURRENT_STUDENT
-    return (
-        f"Học viên {student['student_id']}: GPA {student['gpa']}, {student['credits']} tín chỉ, "
-        f"đang học các môn {', '.join(student['courses'])}."
-    )
-
-
-def recommend_coursera_skills(student_id: str) -> str:
-    """
-    Đề xuất các khóa học kỹ năng trên Coursera phù hợp với học viên hiện tại.
-
-    Args:
-        student_id (str): Mã số sinh viên cần đề xuất khóa học (Ví dụ: 'SV001')
-
-    Returns:
-        str: Danh sách các khóa học Coursera phù hợp với ngành, năm học và mức độ học tập hiện tại
-    """
-    if student_id.upper() != CURRENT_STUDENT["student_id"]:
-        return f"LỖI: Chỉ hỗ trợ đề xuất cho học viên hiện tại '{CURRENT_STUDENT['student_id']}'."
-
-    student = CURRENT_STUDENT
-    major = student["major"].lower()
-    year = student["year"]
-    gpa = student["gpa"]
-
-    if "công nghệ thông tin" in major or "it" in major:
-        recommendations = [
-            "Google - Python for Everybody",
-            "Meta - Introduction to Front-End Development",
-            "DeepLearning.AI - Generative AI with Large Language Models"
-        ]
-    elif "kinh tế" in major:
-        recommendations = [
-            "University of Michigan - Data Analysis with Python",
-            "University of Illinois - Financial Analysis for Decision Making"
-        ]
-    else:
-        recommendations = [
-            "Coursera - Communication Skills for University Success",
-            "University of California - Learning How to Learn"
-        ]
-
-    if year >= 3:
-        recommendations.append("Google - Agile Project Management")
-    if gpa >= 3.0:
-        recommendations.append("IBM - Data Science Fundamentals")
-
-    return (
-        f"Gợi ý khóa học Coursera cho {student['name']} ({student['major']}):\n"
-        + "\n".join(f"- {course}" for course in recommendations)
+        f"Hồ sơ {user['user_id']} — {user['name']}: mục tiêu '{user['goal']}', "
+        f"trình độ {user['current_level']}, kỹ năng hiện có [{', '.join(user['current_skills'])}], "
+        f"quỹ thời gian {user['hours_per_week']}h/tuần, "
+        f"đã hoàn thành [{', '.join(user['completed_courses'])}]."
     )
 
 
-def get_coursera_courses(topic: str) -> str:
+def match_coursera_skill_gap(user_id: str, target_role: str) -> str:
     """
-    Lấy các khóa học Coursera theo một chủ đề hoặc lĩnh vực cụ thể.
+    Phân tích kỹ năng còn thiếu giữa hồ sơ học viên và một vị trí mục tiêu.
 
     Args:
-        topic (str): Chủ đề hoặc lĩnh vực cần tìm khóa học (Ví dụ: 'python', 'AI', 'quản lý')
+        user_id (str): Mã học viên (Ví dụ: 'USER_CS_9921').
+        target_role (str): Vị trí nghề nghiệp mong muốn (Ví dụ: 'Machine Learning Engineer').
 
     Returns:
-        str: Danh sách các khóa học Coursera liên quan đến chủ đề đã cho
+        str: Danh sách kỹ năng còn thiếu để đề xuất khóa học phù hợp.
     """
-    topic_lower = topic.lower()
+    user = LEARNER_DB.get((user_id or "").strip().upper())
+    if not user:
+        return f"LỖI: Không tìm thấy học viên với mã '{user_id}'."
 
-    if "python" in topic_lower:
-        courses = [
-            "Python for Everybody - University of Michigan",
-            "Crash Course on Python - Google"
-        ]
-    elif "ai" in topic_lower or "trí tuệ nhân tạo" in topic_lower:
-        courses = [
-            "Generative AI with Large Language Models - DeepLearning.AI",
-            "AI For Everyone - DeepLearning.AI"
-        ]
-    elif "quản lý" in topic_lower or "management" in topic_lower:
-        courses = [
-            "Agile Project Management - Google",
-            "Project Management Principles - University of California"
-        ]
-    elif "dữ liệu" in topic_lower or "data" in topic_lower:
-        courses = [
-            "Data Science Fundamentals - IBM",
-            "Data Analysis with Python - University of Michigan"
-        ]
-    else:
-        courses = [
-            "Learning How to Learn - University of California",
-            "Communication Skills for University Success - Coursera"
-        ]
-
+    role = (target_role or "").lower()
+    role_skills = {
+        "machine learning engineer": ["Machine Learning", "Deep Learning", "MLOps"],
+        "data scientist": ["Statistics", "Data Analysis", "Machine Learning"],
+        "data analyst": ["SQL", "Data Visualization", "Spreadsheets"],
+    }
+    required = next((v for k, v in role_skills.items() if k in role), ["Kỹ năng nền tảng"])
+    have = {s.lower() for s in user["current_skills"]}
+    missing = [s for s in required if s.lower() not in have]
     return (
-        f"Các khóa học Coursera về '{topic}':\n"
-        + "\n".join(f"- {course}" for course in courses)
+        f"Với mục tiêu '{target_role}', {user['user_id']} còn thiếu: "
+        f"{', '.join(missing) if missing else 'không thiếu kỹ năng cốt lõi'}."
     )
+
+
+def get_coursera_specialization_details(name: str) -> str:
+    """
+    Lấy chi tiết một Chương trình Chuyên sâu (Specialization) gồm khối lượng học tập.
+
+    Args:
+        name (str): Tên Specialization (Ví dụ: 'IBM Data Science Specialization').
+
+    Returns:
+        str: Số khóa học, tổng số giờ, trình độ; hoặc lỗi nếu không tìm thấy.
+    """
+    spec = SPECIALIZATION_DB.get((name or "").strip().lower())
+    if not spec:
+        return f"LỖI: Không tìm thấy Specialization '{name}'."
+    return (
+        f"{spec['name']}: {spec['num_courses']} khóa học, tổng ~{spec['total_hours']} giờ học, "
+        f"trình độ {spec['level']}."
+    )
+
+
+def register_coursera_enrollment(user_id: str, course_name: str) -> str:
+    """
+    Tạo phiếu đăng ký khóa học (mô phỏng) sau khi đã xác thực học viên hợp lệ.
+
+    Args:
+        user_id (str): Mã học viên (Ví dụ: 'USER_CS_9921').
+        course_name (str): Tên khóa học cần đăng ký.
+
+    Returns:
+        str: Xác nhận đăng ký, hoặc lỗi nếu học viên không hợp lệ.
+    """
+    user = LEARNER_DB.get((user_id or "").strip().upper())
+    if not user:
+        return f"LỖI: Không thể đăng ký — không tìm thấy học viên '{user_id}'."
+    if not (course_name or "").strip():
+        return "LỖI: Thiếu tên khóa học cần đăng ký."
+    return (
+        f"✅ Đã tạo phiếu đăng ký cho {user['user_id']} vào khóa '{course_name}'. "
+        f"Mã phiếu: ENR-{abs(hash((user_id, course_name))) % 100000:05d}."
+    )
+
+
+def open_coursera_enrollment_page(course_name: str) -> str:
+    """
+    Mở trang đăng ký khóa học Coursera trên trình duyệt (Web Automation).
+
+    Mặc định CHỈ trả về đường dẫn để an toàn khi chạy test suite. Đặt biến môi trường
+    AUTO_OPEN_BROWSER=1 nếu muốn thực sự bật tab trình duyệt.
+
+    Args:
+        course_name (str): Tên khóa học cần mở trang đăng ký.
+
+    Returns:
+        str: Đường dẫn trang đăng ký (và mở tab nếu AUTO_OPEN_BROWSER=1).
+    """
+    if not (course_name or "").strip():
+        return "LỖI: Thiếu tên khóa học để mở trang đăng ký."
+    url = f"https://www.coursera.org/search?query={course_name.strip().replace(' ', '%20')}"
+    if os.getenv("AUTO_OPEN_BROWSER") == "1":
+        try:
+            webbrowser.open(url)
+            return f"🌐 Đã mở tab trình duyệt tới trang đăng ký '{course_name}': {url}"
+        except Exception as e:  # noqa: BLE001
+            return f"⚠️ Không mở được trình duyệt ({e}). Truy cập thủ công: {url}"
+    return f"🔗 Trang đăng ký '{course_name}': {url} (đặt AUTO_OPEN_BROWSER=1 để tự mở tab)."
 
 
 # Danh sách các tool được đăng ký để Agent sử dụng
 AVAILABLE_TOOLS = {
-    "get_weather": get_weather,
-    "search_flights": search_flights,
-    "get_student_profile": get_student_profile,
-    "get_student_academic_status": get_student_academic_status,
-    "recommend_coursera_skills": recommend_coursera_skills,
-    "get_coursera_courses": get_coursera_courses,
+    "search_coursera_catalog": search_coursera_catalog,
+    "get_user_coursera_profile": get_user_coursera_profile,
+    "match_coursera_skill_gap": match_coursera_skill_gap,
+    "get_coursera_specialization_details": get_coursera_specialization_details,
+    "register_coursera_enrollment": register_coursera_enrollment,
+    "open_coursera_enrollment_page": open_coursera_enrollment_page,
 }
-
-

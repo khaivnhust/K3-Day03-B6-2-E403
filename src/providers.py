@@ -4,6 +4,7 @@ Hỗ trợ chuyển đổi linh hoạt giữa các nhà cung cấp AI chỉ bằ
 """
 
 import os
+import re
 import sys
 import json
 import requests
@@ -132,12 +133,42 @@ class OpenRouterProvider(BaseLLMProvider):
 
 
 class MockProvider(BaseLLMProvider):
-    """Offline Mock Provider (Cho bài test không cần kết nối API)"""
+    """Offline Mock Provider — giả lập ReAct để demo không cần API key.
+
+    Heuristic đủ để minh họa vòng lặp Thought -> Action -> Observation cho
+    kịch bản Tư vấn Khóa học Coursera. Bản demo thật nên dùng provider có API.
+    """
     def generate(self, prompt: str, system_prompt: str = "") -> str:
-        text = prompt.lower()
-        if "thời tiết" in text and "hà nội" in text:
-            return "Thought: Cần tra cứu thời tiết Hà Nội.\nAction: get_weather['Hà Nội']"
-        return "🤖 [Mock Provider]: Phản hồi giả lập offline cho bài test."
+        sys_l = (system_prompt or "").lower()
+        ql = (prompt or "").lower()
+
+        # Chế độ Chatbot Baseline (không phải ReAct)
+        if "react agent" not in sys_l:
+            return "🤖 [Mock Provider offline]: câu trả lời giả lập cho chatbot baseline."
+
+        # Chế độ ReAct: đã có Observation -> kết thúc
+        if "observation: lỗi" in ql or "observation: ❌" in ql:
+            return ("Thought: Công cụ báo lỗi/dữ liệu không hợp lệ, tôi dừng quy trình.\n"
+                    "Final Answer: [Mock] Yêu cầu không thực hiện được do dữ liệu không hợp lệ. "
+                    "Vui lòng kiểm tra lại mã học viên hoặc tên khóa học.")
+        if "observation:" in ql:
+            return ("Thought: Tôi đã có đủ thông tin để trả lời.\n"
+                    "Final Answer: [Mock] Dựa trên kết quả tra cứu ở trên, đây là tư vấn khóa học phù hợp cho bạn.")
+
+        # Bước đầu tiên: chọn công cụ theo nội dung câu hỏi
+        uid_match = re.search(r"user[_a-z0-9]+", ql)
+        if uid_match or "hồ sơ" in ql or "đăng ký" in ql or "trình độ" in ql or "kỹ năng" in ql:
+            uid = uid_match.group(0).upper() if uid_match else "USER_CS_9921"
+            return (f"Thought: Cần xác thực hồ sơ học viên trước khi tư vấn/đăng ký.\n"
+                    f"Action: get_user_coursera_profile[{uid}]")
+
+        keyword = "Python"
+        for k in ["machine learning", "data", "python", "ai", "google", "quantum"]:
+            if k in ql:
+                keyword = k
+                break
+        return (f"Thought: Cần tra cứu khóa học trên Coursera theo chủ đề người dùng hỏi.\n"
+                f"Action: search_coursera_catalog[{keyword}]")
 
 
 def get_llm_provider(provider_name: str = None) -> BaseLLMProvider:

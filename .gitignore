@@ -5,3 +5,7 @@ __pycache__/
 .venv/
 env/
 venv/
+.omc
+
+# Coursera OAuth token cache (không commit token)
+config/coursera_token.json
