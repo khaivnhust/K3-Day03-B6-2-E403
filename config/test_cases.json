@@ -2,31 +2,61 @@
   {
     "id": 1,
     "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Thủ đô của Việt Nam là gì?",
-    "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
+    "question": "Coursera là gì và làm thế nào để đăng ký học một khóa học trên Coursera?",
+    "expected_behavior": "Chatbot/Agent trả lời trực tiếp từ kiến thức nền tảng mà không cần gọi Tool nào."
   },
   {
     "id": 2,
-    "category": "🟢 Đơn giản (Chỉ cần LLM)",
-    "question": "Nêu 3 lời khuyên để học tốt lập trình.",
-    "expected_behavior": "Chatbot trả lời trực tiếp từ kiến thức có sẵn."
+    "category": "🟢 Đơn giản (Chỉ cần LLM / 1 Tool)",
+    "question": "Tôi muốn biết tổng quan về nội dung khóa học 'Generative AI for Everyone' của Andrew Ng trên Coursera.",
+    "expected_behavior": "Chatbot trả lời trực tiếp hoặc gọi 1 tool search_coursera_catalog để lấy mô tả chi tiết khóa học."
   },
   {
     "id": 3,
-    "category": "🟡 Multi-step (Cần Tool)",
-    "question": "Thời tiết ở Hà Nội hôm nay thế nào và tôi nên mặc gì đi chơi?",
-    "expected_behavior": "Agent gọi tool get_weather('Hà Nội') rồi suy luận trang phục."
+    "category": "🟢 Đơn giản (Chỉ cần LLM)",
+    "question": "Sự khác biệt giữa một Khóa học lẻ (Single Course) và một Chương trình Chuyên sâu (Specialization) trên Coursera là gì?",
+    "expected_behavior": "LLM phân biệt rõ ràng giữa Course (khóa học lẻ 3-5 tuần) và Specialization (chuỗi 3-6 khóa lấy chứng chỉ) mà không gọi tool thừa."
   },
   {
     "id": 4,
-    "category": "🟡 Multi-step (Cần gọi 2 Tools)",
-    "question": "Kiểm tra vé máy bay từ TP.HCM đi Hà Nội ngày mai và dự báo thời tiết ở Hà Nội.",
-    "expected_behavior": "Agent gọi tool search_flights và get_weather để trả lời đầy đủ."
+    "category": "🟢 Đơn giản (1 Tool Tra cứu)",
+    "question": "Tìm cho tôi danh sách các khóa học Coursera do Google giảng dạy thuộc chủ đề Data Analytics.",
+    "expected_behavior": "Agent gọi 1 tool search_coursera_catalog(query='Data Analytics Google') và hiển thị kết quả."
   },
   {
     "id": 5,
-    "category": "🔴 Edge Case (Bẫy Guardrail)",
-    "question": "Tra cứu thời tiết ở thành phố Atlantis ngày 32/13/2026.",
-    "expected_behavior": "Tool báo lỗi tham số/thất bại, Guardrail ngắt sau 3 bước và trả về thông báo lịch sự."
+    "category": "🟡 Multi-step (Phối hợp 3 Tools)",
+    "question": "Tôi muốn trở thành Machine Learning Engineer. Hãy kiểm tra hồ sơ kỹ năng của tôi (user_id: 'USER_CS_9921'), phân tích kỹ năng tôi còn thiếu và tìm cho tôi các khóa học Coursera phù hợp.",
+    "expected_behavior": "Agent gọi get_user_coursera_profile -> match_coursera_skill_gap -> search_coursera_catalog và tổng hợp tư vấn lộ trình."
+  },
+  {
+    "id": 6,
+    "category": "🟡 Multi-step (Tư vấn & Đăng ký Khóa học)",
+    "question": "Tôi là sinh viên ID 'USER_CS_9921', hãy kiểm tra khóa học 'Neural Networks and Deep Learning' trên Coursera, nếu phù hợp với lịch rảnh của tôi thì tiến hành đăng ký khóa học đó giúp tôi.",
+    "expected_behavior": "Agent gọi get_user_coursera_profile -> search_coursera_catalog -> register_coursera_enrollment để tạo phiếu đăng ký thành công."
+  },
+  {
+    "id": 7,
+    "category": "🟡 Multi-step (Đánh giá Tải học tập Chuyên ngành)",
+    "question": "Tôi muốn học vị trí Data Scientist. Hãy kiểm tra trình độ hiện tại của tôi (user_id: 'USER_CS_9921'), tra cứu Chuyên ngành 'IBM Data Science Specialization' trên Coursera và đánh giá xem tôi có đủ thời gian học với quỹ 5h/tuần không.",
+    "expected_behavior": "Agent gọi get_user_coursera_profile -> get_coursera_specialization_details -> tính toán khối lượng học tập và đưa ra đánh giá tính khả thi."
+  },
+  {
+    "id": 8,
+    "category": "🟡 Multi-step (Web Automation Enrollment)",
+    "question": "Tôi là sinh viên ID 'USER_CS_9921'. Hãy tìm khóa học 'Python for Data Science and AI' trên Coursera, nếu tôi chưa hoàn thành thì hãy tự động bật trang đăng ký khóa học đó giúp tôi.",
+    "expected_behavior": "Agent gọi get_user_coursera_profile -> phát hiện chưa học -> gọi open_coursera_enrollment_page để tự động nảy tab trình duyệt web thật."
+  },
+  {
+    "id": 9,
+    "category": "🔴 Edge Case (Bẫy Từ Khóa Không Tồn Tại / Guardrail)",
+    "question": "Hãy tìm cho tôi khóa học Coursera 'Lập trình Quantum Computing bằng ngôn ngữ ngoài hành tinh Klingon' cho trình độ Ultra-Master và đăng ký với thời lượng 500h/tuần.",
+    "expected_behavior": "Tool tìm kiếm trả về rỗng, Agent nhận biết thông số vô lý (500h/tuần), không bị lặp vô tận (crash), ngắt lịch sự và đưa ra thông báo phù hợp."
+  },
+  {
+    "id": 10,
+    "category": "🔴 Edge Case (Bẫy Mã Sinh Viên Không Tồn Tại)",
+    "question": "Hãy đăng ký khóa học 'Deep Learning Specialization' trên Coursera giúp tôi với mã sinh viên 'USER_UNKNOWN_9999'.",
+    "expected_behavior": "Agent gọi get_user_coursera_profile -> Tool trả về lỗi không tìm thấy sinh viên -> Agent phát hiện lỗi, ngắt quy trình đăng ký và báo lỗi chính xác cho người dùng."
   }
 ]
