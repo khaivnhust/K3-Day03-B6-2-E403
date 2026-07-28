@@ -148,29 +148,31 @@ class MockProvider(BaseLLMProvider):
 
         # Chế độ ReAct: đã có Observation -> kết thúc
         if "observation: lỗi" in ql or "observation: ❌" in ql:
-            return ("Thought: Công cụ báo lỗi/dữ liệu không hợp lệ, tôi dừng quy trình.\n"
-                    "Final Answer: [Mock] Yêu cầu không thực hiện được do dữ liệu không hợp lệ. "
-                    "Vui lòng kiểm tra lại mã học viên hoặc tên khóa học.")
+            return ("Thought: Công cụ báo lỗi/yêu cầu không hợp lệ, tôi dừng và giải thích.\n"
+                    "Final Answer: [Mock] Không tìm được khóa học phù hợp do yêu cầu không hợp lệ. "
+                    "Bạn vui lòng nêu lại chủ đề/mục tiêu học thực tế nhé.")
         if "observation:" in ql:
             return ("Thought: Tôi đã có đủ thông tin để trả lời.\n"
-                    "Final Answer: [Mock] Dựa trên kết quả tra cứu ở trên, đây là tư vấn khóa học phù hợp cho bạn.")
+                    "Final Answer: [Mock] Dựa trên các khóa học Coursera tìm được ở trên, đây là gợi ý phù hợp cho bạn.")
 
-        # Bước đầu tiên: chọn công cụ theo nội dung câu hỏi
-        # Ưu tiên mã học viên dạng USER_CS_9921 / USER_UNKNOWN_9999 (có đuôi số),
-        # tránh bắt nhầm chữ "user_id" trong câu hỏi.
-        uid_match = re.search(r"user_[a-z]+_\d+", ql)
-        if uid_match or "hồ sơ" in ql or "đăng ký" in ql or "trình độ" in ql or "kỹ năng" in ql:
-            uid = uid_match.group(0).upper() if uid_match else "USER_CS_9921"
-            return (f"Thought: Cần xác thực hồ sơ học viên trước khi tư vấn/đăng ký.\n"
-                    f"Action: get_user_coursera_profile[{uid}]")
-
-        keyword = "Python"
-        for k in ["machine learning", "data", "python", "ai", "google", "quantum"]:
-            if k in ql:
-                keyword = k
+        # Bước đầu tiên (ẩn danh): định hướng nghề -> analyze_skill_gap; còn lại -> recommend_courses
+        role = ""
+        for r in ["machine learning engineer", "data scientist", "data analyst",
+                  "web developer", "digital marketer"]:
+            if r in ql:
+                role = r
                 break
-        return (f"Thought: Cần tra cứu khóa học trên Coursera theo chủ đề người dùng hỏi.\n"
-                f"Action: search_coursera_catalog[{keyword}]")
+        if role and ("kỹ năng" in ql or "cần gì" in ql or "thiếu" in ql):
+            return (f"Thought: Người dùng muốn định hướng nghề, xem cần kỹ năng gì trước.\n"
+                    f"Action: analyze_skill_gap[{role}]")
+
+        goal = "học lập trình"
+        for k in ["machine learning", "data", "python", "ai", "web", "marketing"]:
+            if k in ql:
+                goal = k
+                break
+        return (f"Thought: Cần tự tìm khóa học Coursera phù hợp với nhu cầu người dùng.\n"
+                f"Action: recommend_courses[{goal}]")
 
 
 def get_llm_provider(provider_name: str = None) -> BaseLLMProvider:

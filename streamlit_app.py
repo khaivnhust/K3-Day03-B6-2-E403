@@ -183,7 +183,7 @@ with tabs[2]:
     ex = st.selectbox("Chọn test case mẫu (hoặc tự nhập bên dưới)",
                       ["— tự nhập —"] + examples, key="ex3")
     default_q3 = ex if ex != "— tự nhập —" else \
-        "Tôi muốn thành Machine Learning Engineer (user_id: 'USER_CS_9921'), phân tích kỹ năng thiếu và tìm khóa Coursera phù hợp."
+        "Tôi muốn học Machine Learning nhưng mới bắt đầu, gợi ý cho tôi vài khóa Coursera phù hợp."
     q3 = st.text_area("Câu hỏi", value=default_q3, key="q3")
 
     if st.button("Chạy ReAct Agent", key="b3", type="primary"):
@@ -199,20 +199,22 @@ with tabs[2]:
 # ============================================================================
 with tabs[3]:
     st.subheader("🚀 Cấp 4 — Autonomous Agent (Planning + Memory)")
-    st.caption("Tự rã mục tiêu phức tạp thành nhiều bước con, lưu Memory, dùng tool thật.")
+    st.caption("Tự rã mục tiêu phức tạp thành nhiều bước con, lưu Memory, dùng tool thật. Không cần đăng nhập.")
     goal = st.text_area(
-        "Mục tiêu phức tạp",
-        value="Tôi là USER_CS_9921, muốn trở thành Machine Learning Engineer. Hãy lập lộ trình học Coursera cho tôi.",
+        "Mục tiêu học tập (ẩn danh)",
+        value="Tôi muốn trở thành Data Scientist. Hãy gợi ý lộ trình khóa học Coursera cho tôi.",
         key="q4",
     )
-    enroll = st.checkbox("Tự động đăng ký khóa đầu tiên", value=True, key="enr4")
+    colg1, colg2 = st.columns([1, 1])
+    level = colg1.selectbox("Trình độ", ["", "Beginner", "Intermediate", "Advanced"], key="lvl4")
+    open_page = colg2.checkbox("Đưa link trang khóa học đầu tiên", value=True, key="op4")
     if st.button("Chạy Autonomous Agent", key="b4", type="primary"):
         with st.spinner("Agent đang lập kế hoạch & thực thi..."):
-            res = level4_autonomous_agent(goal, enroll=enroll)
+            res = level4_autonomous_agent(goal, level=level, open_page=open_page)
 
         c1, c2 = st.columns(2)
-        c1.metric("Học viên", res["user_id"])
-        c2.metric("Mục tiêu", res["target_role"])
+        c1.metric("Mục tiêu nghề", res["target_role"])
+        c2.metric("Chủ đề", res["topic"])
 
         st.markdown("#### 📋 Planning — kế hoạch tự sinh")
         for p in res["plan"]:

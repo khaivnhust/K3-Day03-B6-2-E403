@@ -1,12 +1,12 @@
 """
 🛠️ TOOL REGISTRY & SCHEMAS (Dành cho Role 2: Tool & Spec Engineer)
-Trợ lý Tư vấn Khóa học Coursera — bộ công cụ cho ReAct Agent.
+Trợ lý Tư vấn Khóa học Coursera — ẩn danh (KHÔNG cần user_id).
+Bất kỳ ai hỏi cũng được; Agent tự tìm khóa học Coursera phù hợp.
 
 Chiến lược dữ liệu HYBRID:
-- `search_coursera_catalog` gọi Coursera Catalog API THẬT (public, không cần token),
-  tự động fallback về danh mục mẫu khi offline / lỗi mạng.
-- Các tool hồ sơ học viên, đánh giá lộ trình, đăng ký... dùng dữ liệu mô phỏng
-  (Coursera Partner API cần hợp đồng doanh nghiệp nên không dùng ở lab này).
+- `search_coursera_catalog` / `recommend_courses` gọi Coursera Catalog API THẬT
+  (public, không cần token), tự động bổ sung danh mục mẫu khi kết quả thưa/offline.
+- Các tool còn lại dùng dữ liệu mô phỏng cho kỹ năng nghề & chi tiết specialization.
 """
 
 import os
@@ -15,26 +15,14 @@ import webbrowser
 from dotenv import load_dotenv
 
 from coursera_api import CourseraAPIClient
+from prompts import MAX_RECOMMENDED_COURSES
 
 load_dotenv()
 
 # =============================================================================
-# DỮ LIỆU MÔ PHỎNG (MOCK) — hồ sơ học viên & danh mục dự phòng
+# DỮ LIỆU MÔ PHỎNG (MOCK) — danh mục dự phòng & kỹ năng nghề
 # =============================================================================
-# Học viên hợp lệ duy nhất cho demo (đồng bộ với config/test_cases.json).
-LEARNER_DB = {
-    "USER_CS_9921": {
-        "user_id": "USER_CS_9921",
-        "name": "Nguyễn An",
-        "goal": "Machine Learning Engineer",
-        "current_level": "Beginner",
-        "current_skills": ["Python cơ bản", "Toán cao cấp"],
-        "hours_per_week": 5,
-        "completed_courses": ["Python for Everybody"],
-    }
-}
-
-# Danh mục dự phòng khi Coursera API không truy cập được (offline demo).
+# Danh mục dự phòng/bổ sung khi Coursera API trả kết quả thưa (offline demo).
 FALLBACK_CATALOG = {
     "python": [
         "Python for Everybody — University of Michigan",
@@ -54,29 +42,71 @@ FALLBACK_CATALOG = {
     "machine learning": [
         "Machine Learning Specialization — DeepLearning.AI",
         "Neural Networks and Deep Learning — DeepLearning.AI",
+        "Supervised Machine Learning: Regression and Classification — DeepLearning.AI",
     ],
+    "web": [
+        "Meta Front-End Developer Professional Certificate — Meta",
+        "HTML, CSS, and Javascript for Web Developers — Johns Hopkins",
+    ],
+    "marketing": [
+        "Google Digital Marketing & E-commerce — Google",
+        "Digital Marketing Specialization — University of Illinois",
+    ],
+}
+
+# Kỹ năng cốt lõi theo một số vị trí nghề nghiệp (mô phỏng).
+ROLE_SKILLS = {
+    "machine learning engineer": ["Python", "Machine Learning", "Deep Learning", "MLOps"],
+    "data scientist": ["Python", "Statistics", "Data Analysis", "Machine Learning"],
+    "data analyst": ["SQL", "Spreadsheets", "Data Visualization", "Statistics"],
+    "web developer": ["HTML/CSS", "JavaScript", "React", "Git"],
+    "digital marketer": ["SEO", "Content", "Google Analytics", "Ads"],
 }
 
 # Chi tiết một số Specialization (mô phỏng khối lượng học tập).
 SPECIALIZATION_DB = {
     "ibm data science specialization": {
         "name": "IBM Data Science Specialization",
-        "num_courses": 12,
-        "total_hours": 120,
-        "level": "Beginner",
+        "num_courses": 12, "total_hours": 120, "level": "Beginner",
     },
     "deep learning specialization": {
         "name": "Deep Learning Specialization",
-        "num_courses": 5,
-        "total_hours": 100,
-        "level": "Intermediate",
+        "num_courses": 5, "total_hours": 100, "level": "Intermediate",
+    },
+    "machine learning specialization": {
+        "name": "Machine Learning Specialization",
+        "num_courses": 3, "total_hours": 90, "level": "Beginner",
     },
 }
 
 
+def _topic_key(text: str) -> str:
+    """Đoán chủ đề chính từ câu hỏi tự do để dò danh mục mẫu."""
+    t = (text or "").lower()
+    for key in ["machine learning", "data", "python", "ai", "web", "marketing"]:
+        if key in t:
+            return key
+    return ""
+
+
+def _api_courses(query: str, limit: int):
+    """Gọi Coursera Catalog API thật, chỉ giữ khóa có tên khớp từ khóa."""
+    try:
+        results = CourseraAPIClient.search_courses(query=query, limit=50)
+    except Exception as e:  # noqa: BLE001 - tool không được phép crash Agent
+        print(f"⚠️ Coursera API lỗi ({e}), dùng danh mục mẫu.")
+        return []
+    q = (query or "").lower()
+    named = [c.get("name", "") for c in results if c.get("name")]
+    # Chỉ giữ khóa có tên KHỚP từ khóa (tránh trả về khóa không liên quan).
+    keywords = [w for w in q.split() if len(w) > 2]
+    matched = [n for n in named if any(w in n.lower() for w in keywords)]
+    return matched[:limit]
+
+
 def search_coursera_catalog(query: str) -> str:
     """
-    Tra cứu khóa học trên Coursera Catalog API (dữ liệu THẬT, có fallback mẫu).
+    Tra cứu khóa học trên Coursera Catalog API (dữ liệu THẬT, có bổ sung mẫu).
 
     Args:
         query (str): Từ khóa/chủ đề cần tìm (Ví dụ: 'Data Analytics Google', 'Python').
@@ -88,76 +118,75 @@ def search_coursera_catalog(query: str) -> str:
     if not query:
         return "LỖI: Thiếu từ khóa tìm kiếm."
 
-    # 1) Ưu tiên gọi Coursera Catalog API thật
-    try:
-        results = CourseraAPIClient.search_courses(query=query, limit=5)
-    except Exception as e:  # noqa: BLE001 - tool không được phép crash Agent
-        results = []
-        print(f"⚠️ search_coursera_catalog: lỗi gọi API thật ({e}), dùng fallback.")
+    courses = _api_courses(query, MAX_RECOMMENDED_COURSES)
+    if courses:
+        body = "\n".join(f"- {c}" for c in courses)
+        return f"[Coursera API] Kết quả cho '{query}':\n{body}"
 
-    if results:
-        lines = [f"- {c.get('name', 'N/A')} (slug: {c.get('slug', 'n/a')})" for c in results]
-        return f"[Coursera API] Kết quả cho '{query}':\n" + "\n".join(lines)
-
-    # 2) Fallback danh mục mẫu theo chủ đề
-    q_lower = query.lower()
-    for key, courses in FALLBACK_CATALOG.items():
-        if key in q_lower:
-            body = "\n".join(f"- {c}" for c in courses)
-            return f"[Danh mục mẫu] Khóa học Coursera cho '{query}':\n{body}"
+    key = _topic_key(query)
+    if key:
+        body = "\n".join(f"- {c}" for c in FALLBACK_CATALOG[key])
+        return f"[Danh mục mẫu] Khóa học Coursera cho '{query}':\n{body}"
 
     return f"LỖI: Không tìm thấy khóa học Coursera nào khớp với '{query}'."
 
 
-def get_user_coursera_profile(user_id: str) -> str:
+def recommend_courses(goal: str, level: str = "") -> str:
     """
-    Lấy hồ sơ học tập của học viên (mục tiêu, trình độ, kỹ năng, quỹ thời gian).
+    Tự đề xuất các khóa học Coursera PHÙ HỢP cho một mục tiêu học tập tự do.
+
+    Dùng cho người dùng ẩn danh: không cần hồ sơ/user_id. Kết hợp kết quả API
+    Coursera thật với danh mục mẫu để đảm bảo gợi ý sát chủ đề.
 
     Args:
-        user_id (str): Mã học viên (Ví dụ: 'USER_CS_9921').
+        goal (str): Mục tiêu/nhu cầu học (Ví dụ: 'học machine learning', 'thành data analyst').
+        level (str): (Tùy chọn) trình độ mong muốn ('Beginner', 'Intermediate', 'Advanced').
 
     Returns:
-        str: Thông tin hồ sơ, hoặc lỗi nếu không tìm thấy học viên.
+        str: Danh sách khóa học đề xuất (tối đa MAX_RECOMMENDED_COURSES).
     """
-    user = LEARNER_DB.get((user_id or "").strip().upper())
-    if not user:
-        return f"LỖI: Không tìm thấy học viên với mã '{user_id}'."
-    return (
-        f"Hồ sơ {user['user_id']} — {user['name']}: mục tiêu '{user['goal']}', "
-        f"trình độ {user['current_level']}, kỹ năng hiện có [{', '.join(user['current_skills'])}], "
-        f"quỹ thời gian {user['hours_per_week']}h/tuần, "
-        f"đã hoàn thành [{', '.join(user['completed_courses'])}]."
-    )
+    goal = (goal or "").strip()
+    if not goal:
+        return "LỖI: Vui lòng cho biết bạn muốn học gì."
+
+    # 1) Ưu tiên khóa THẬT khớp từ khóa mục tiêu
+    picked = _api_courses(goal, MAX_RECOMMENDED_COURSES)
+
+    # 2) Bổ sung từ danh mục mẫu theo chủ đề để đủ số lượng & sát chủ đề
+    key = _topic_key(goal)
+    if key:
+        for c in FALLBACK_CATALOG[key]:
+            if len(picked) >= MAX_RECOMMENDED_COURSES:
+                break
+            if c not in picked:
+                picked.append(c)
+
+    if not picked:
+        return f"LỖI: Chưa tìm được khóa học phù hợp cho mục tiêu '{goal}'."
+
+    level_note = f" (trình độ: {level})" if level else ""
+    body = "\n".join(f"- {c}" for c in picked[:MAX_RECOMMENDED_COURSES])
+    return f"🎯 Khóa học Coursera gợi ý cho '{goal}'{level_note}:\n{body}"
 
 
-def match_coursera_skill_gap(user_id: str, target_role: str) -> str:
+def analyze_skill_gap(target_role: str) -> str:
     """
-    Phân tích kỹ năng còn thiếu giữa hồ sơ học viên và một vị trí mục tiêu.
+    Liệt kê các kỹ năng cốt lõi cần có cho một vị trí nghề nghiệp mục tiêu.
+
+    Không cần hồ sơ người dùng — dùng để định hướng nên học khóa gì.
 
     Args:
-        user_id (str): Mã học viên (Ví dụ: 'USER_CS_9921').
-        target_role (str): Vị trí nghề nghiệp mong muốn (Ví dụ: 'Machine Learning Engineer').
+        target_role (str): Vị trí mong muốn (Ví dụ: 'Data Scientist', 'Machine Learning Engineer').
 
     Returns:
-        str: Danh sách kỹ năng còn thiếu để đề xuất khóa học phù hợp.
+        str: Danh sách kỹ năng nên trang bị cho vị trí đó.
     """
-    user = LEARNER_DB.get((user_id or "").strip().upper())
-    if not user:
-        return f"LỖI: Không tìm thấy học viên với mã '{user_id}'."
-
-    role = (target_role or "").lower()
-    role_skills = {
-        "machine learning engineer": ["Machine Learning", "Deep Learning", "MLOps"],
-        "data scientist": ["Statistics", "Data Analysis", "Machine Learning"],
-        "data analyst": ["SQL", "Data Visualization", "Spreadsheets"],
-    }
-    required = next((v for k, v in role_skills.items() if k in role), ["Kỹ năng nền tảng"])
-    have = {s.lower() for s in user["current_skills"]}
-    missing = [s for s in required if s.lower() not in have]
-    return (
-        f"Với mục tiêu '{target_role}', {user['user_id']} còn thiếu: "
-        f"{', '.join(missing) if missing else 'không thiếu kỹ năng cốt lõi'}."
-    )
+    role = (target_role or "").strip().lower()
+    skills = next((v for k, v in ROLE_SKILLS.items() if k in role), None)
+    if not skills:
+        return (f"Chưa có dữ liệu kỹ năng riêng cho '{target_role}'. "
+                f"Gợi ý chung: nền tảng lập trình, tư duy dữ liệu và một dự án thực hành.")
+    return f"Để theo hướng '{target_role}', bạn nên nắm: {', '.join(skills)}."
 
 
 def get_coursera_specialization_details(name: str) -> str:
@@ -173,65 +202,40 @@ def get_coursera_specialization_details(name: str) -> str:
     spec = SPECIALIZATION_DB.get((name or "").strip().lower())
     if not spec:
         return f"LỖI: Không tìm thấy Specialization '{name}'."
-    return (
-        f"{spec['name']}: {spec['num_courses']} khóa học, tổng ~{spec['total_hours']} giờ học, "
-        f"trình độ {spec['level']}."
-    )
-
-
-def register_coursera_enrollment(user_id: str, course_name: str) -> str:
-    """
-    Tạo phiếu đăng ký khóa học (mô phỏng) sau khi đã xác thực học viên hợp lệ.
-
-    Args:
-        user_id (str): Mã học viên (Ví dụ: 'USER_CS_9921').
-        course_name (str): Tên khóa học cần đăng ký.
-
-    Returns:
-        str: Xác nhận đăng ký, hoặc lỗi nếu học viên không hợp lệ.
-    """
-    user = LEARNER_DB.get((user_id or "").strip().upper())
-    if not user:
-        return f"LỖI: Không thể đăng ký — không tìm thấy học viên '{user_id}'."
-    if not (course_name or "").strip():
-        return "LỖI: Thiếu tên khóa học cần đăng ký."
-    return (
-        f"✅ Đã tạo phiếu đăng ký cho {user['user_id']} vào khóa '{course_name}'. "
-        f"Mã phiếu: ENR-{abs(hash((user_id, course_name))) % 100000:05d}."
-    )
+    return (f"{spec['name']}: {spec['num_courses']} khóa học, tổng ~{spec['total_hours']} giờ học, "
+            f"trình độ {spec['level']}.")
 
 
 def open_coursera_enrollment_page(course_name: str) -> str:
     """
-    Mở trang đăng ký khóa học Coursera trên trình duyệt (Web Automation).
+    Mở/đưa link trang khóa học trên Coursera để người dùng tự đăng ký (không cần đăng nhập).
 
     Mặc định CHỈ trả về đường dẫn để an toàn khi chạy test suite. Đặt biến môi trường
     AUTO_OPEN_BROWSER=1 nếu muốn thực sự bật tab trình duyệt.
 
     Args:
-        course_name (str): Tên khóa học cần mở trang đăng ký.
+        course_name (str): Tên khóa học cần mở trang.
 
     Returns:
-        str: Đường dẫn trang đăng ký (và mở tab nếu AUTO_OPEN_BROWSER=1).
+        str: Đường dẫn trang khóa học (và mở tab nếu AUTO_OPEN_BROWSER=1).
     """
     if not (course_name or "").strip():
-        return "LỖI: Thiếu tên khóa học để mở trang đăng ký."
+        return "LỖI: Thiếu tên khóa học để mở trang."
     url = f"https://www.coursera.org/search?query={course_name.strip().replace(' ', '%20')}"
     if os.getenv("AUTO_OPEN_BROWSER") == "1":
         try:
             webbrowser.open(url)
-            return f"🌐 Đã mở tab trình duyệt tới trang đăng ký '{course_name}': {url}"
+            return f"🌐 Đã mở tab trình duyệt tới '{course_name}': {url}"
         except Exception as e:  # noqa: BLE001
             return f"⚠️ Không mở được trình duyệt ({e}). Truy cập thủ công: {url}"
-    return f"🔗 Trang đăng ký '{course_name}': {url} (đặt AUTO_OPEN_BROWSER=1 để tự mở tab)."
+    return f"🔗 Trang khóa học '{course_name}': {url} (đặt AUTO_OPEN_BROWSER=1 để tự mở tab)."
 
 
-# Danh sách các tool được đăng ký để Agent sử dụng
+# Danh sách các tool được đăng ký để Agent sử dụng (đều ẩn danh, không cần user_id)
 AVAILABLE_TOOLS = {
+    "recommend_courses": recommend_courses,
     "search_coursera_catalog": search_coursera_catalog,
-    "get_user_coursera_profile": get_user_coursera_profile,
-    "match_coursera_skill_gap": match_coursera_skill_gap,
+    "analyze_skill_gap": analyze_skill_gap,
     "get_coursera_specialization_details": get_coursera_specialization_details,
-    "register_coursera_enrollment": register_coursera_enrollment,
     "open_coursera_enrollment_page": open_coursera_enrollment_page,
 }
