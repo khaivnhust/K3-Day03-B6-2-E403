@@ -4,6 +4,7 @@ import time
 import json
 import datetime
 import requests
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -117,24 +118,65 @@ class CourseraAPIClient:
             headers["Authorization"] = f"Bearer {token}"
         return headers
 
+    # Duyệt tối đa SEARCH_MAX_PAGES trang (mỗi trang PAGE_SIZE khóa) khi tìm từ khóa.
+    # API công khai courses.v1 CHỈ liệt kê catalog (không có full-text search), nên ta
+    # phải tự duyệt catalog rồi lọc chuỗi con phía client. Để tránh 1 lần "miss" phải
+    # chờ hàng chục lần gọi tuần tự, ta gọi các trang SONG SONG theo từng đợt PAGE_BATCH.
+    SEARCH_MAX_PAGES = 20
+    PAGE_SIZE = 100
+    PAGE_BATCH = 5
+
     @classmethod
-    def search_courses(cls, query: str = "", limit: int = 5) -> List[Dict[str, Any]]:
-        """Tra cứu danh sách khóa học trên Coursera Catalog API."""
-        endpoint = f"{COURSERA_BASE_URL}/courses.v1"
-        params = {"limit": 50, "fields": "description,photoUrl,certificates,workload"}
+    def _fetch_page(cls, endpoint: str, params: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+        """Gọi 1 trang catalog. Trả về list khóa, hoặc None nếu lỗi mạng."""
         try:
             response = requests.get(endpoint, headers=cls.get_headers(), params=params, timeout=TIMEOUT)
             response.raise_for_status()
-            elements = response.json().get("elements", [])
-            
-            if query:
-                q_lower = query.lower()
-                matched = [c for c in elements if q_lower in c.get("name", "").lower() or q_lower in c.get("slug", "").lower()]
-                return matched[:limit] if matched else elements[:limit]
-            return elements[:limit]
+            return response.json().get("elements", [])
         except requests.exceptions.RequestException as e:
             print(f"❌ Lỗi gọi Coursera Courses API: {e}")
-            return []
+            return None
+
+    @classmethod
+    def search_courses(cls, query: str = "", limit: int = 5) -> List[Dict[str, Any]]:
+        """Tra cứu danh sách khóa học trên Coursera Catalog API.
+
+        Không có `query`: trả về trang đầu của catalog.
+        Có `query`: duyệt catalog (song song theo đợt), lọc theo tên/slug và trả về CHỈ
+        những khóa khớp — nếu không khóa nào khớp thì trả RỖNG (để tầng gọi chuyển sang
+        danh mục mẫu), TUYỆT ĐỐI không trả về khóa ngẫu nhiên không liên quan (đây chính
+        là nguồn gốc lỗi "trả lời ngố" trước đây).
+        """
+        endpoint = f"{COURSERA_BASE_URL}/courses.v1"
+        base_params = {"fields": "description,photoUrl,certificates,workload"}
+
+        if not query:
+            elements = cls._fetch_page(endpoint, {**base_params, "limit": cls.PAGE_SIZE})
+            return (elements or [])[:limit]
+
+        q_lower = query.lower()
+        matched: List[Dict[str, Any]] = []
+        # Duyệt các trang theo từng đợt PAGE_BATCH, gọi song song trong mỗi đợt.
+        for batch_start in range(0, cls.SEARCH_MAX_PAGES, cls.PAGE_BATCH):
+            pages = range(batch_start, min(batch_start + cls.PAGE_BATCH, cls.SEARCH_MAX_PAGES))
+            param_list = [
+                {**base_params, "limit": cls.PAGE_SIZE, "start": p * cls.PAGE_SIZE}
+                for p in pages
+            ]
+            with ThreadPoolExecutor(max_workers=cls.PAGE_BATCH) as pool:
+                results = list(pool.map(lambda pr: cls._fetch_page(endpoint, pr), param_list))
+
+            reached_end = False
+            for elements in results:  # giữ nguyên thứ tự trang
+                if not elements:  # None (lỗi) hoặc [] (hết catalog)
+                    reached_end = True
+                    continue
+                for c in elements:
+                    if q_lower in c.get("name", "").lower() or q_lower in c.get("slug", "").lower():
+                        matched.append(c)
+            if len(matched) >= limit or reached_end:
+                break
+        return matched[:limit]
 
 if __name__ == "__main__":
     print("🔄 Đang thực hiện lấy và lưu Access Token...")
