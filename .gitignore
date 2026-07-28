@@ -1,7 +1,29 @@
+# Python & Virtual Environments
 __pycache__/
 *.py[cod]
 *$py.class
-.env
 .venv/
-env/
 venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+
+# Environment variables & sensitive API keys
+.env
+.env.local
+.env.*.local
+
+# Coursera OAuth Tokens & Cached Credentials (NHẠY CẢM - KHÔNG COMMIT)
+config/coursera_token.json
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/

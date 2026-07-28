@@ -1,6 +1,7 @@
 """
 🔌 MULTI-PROVIDER LLM ADAPTER (OpenAI, Gemini, Anthropic, OpenRouter & Offline Mock)
 Hỗ trợ chuyển đổi linh hoạt giữa các nhà cung cấp AI chỉ bằng cách đổi biến môi trường LLM_PROVIDER.
+Tự động kích hoạt Online Model ngay khi phát hiện API Key trong file .env.
 """
 
 import os
@@ -24,7 +25,7 @@ class BaseLLMProvider:
 
 
 class GeminiProvider(BaseLLMProvider):
-    """Google Gemini Provider"""
+    """Google Gemini Provider (Gemini 2.5 Flash / Gemini Pro)"""
     def __init__(self, api_key: str = None, model: str = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.model_name = model or os.getenv("LLM_MODEL") or "gemini-2.5-flash"
@@ -225,7 +226,22 @@ class MockProvider(BaseLLMProvider):
 
 
 def get_llm_provider(provider_name: str = None) -> BaseLLMProvider:
-    name = (provider_name or os.getenv("LLM_PROVIDER") or "mock").lower().strip()
+    """Factory function tự chọn Provider từ biến môi trường LLM_PROVIDER hoặc tự động kích hoạt API Key."""
+    env_provider = os.getenv("LLM_PROVIDER", "").lower().strip()
+    name = (provider_name or env_provider).lower().strip()
+    
+    # 🚀 TỰ ĐỘNG CHUYỂN SANG MODEL ONLINE NẾU ĐÃ CÓ API KEY TRONG .ENV
+    if not name or name == "auto" or name == "mock":
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if gemini_key and gemini_key.strip() and gemini_key != "your_gemini_api_key_here":
+            return GeminiProvider()
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if openai_key and openai_key.strip() and openai_key != "your_openai_api_key_here":
+            return OpenAIProvider()
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key and openrouter_key.strip() and openrouter_key != "your_openrouter_api_key_here":
+            return OpenRouterProvider()
+    
     if name == "gemini":
         return GeminiProvider()
     elif name == "openai":
