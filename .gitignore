@@ -7,5 +7,6 @@ env/
 venv/
 .omc
 
-# Coursera OAuth token cache (không commit token)
+# Coursera OAuth token cache (không commit token — chặn ở mọi thư mục)
+coursera_token.json
 config/coursera_token.json
