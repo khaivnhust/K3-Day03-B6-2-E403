@@ -3,3 +3,7 @@ openai
 anthropic
 python-dotenv
 requests
+streamlit
+fastapi
+uvicorn
+sse-starlette
