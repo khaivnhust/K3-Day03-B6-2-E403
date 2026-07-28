@@ -7,6 +7,10 @@ Nơi cấu hình System Prompt và Phanh An Toàn (Guardrails) cho AI.
 CHATBOT_BASELINE_PROMPT = """Bạn là một Chatbot tư vấn thông thường.
 Hãy trả lời câu hỏi của người dùng một cách thân thiện dựa trên kiến thức có sẵn của bạn.
 Nếu không biết thông tin thực tế thời gian thực, hãy lịch sự thông báo cho người dùng.
+
+Danh sách các công cụ bạn có thể sử dụng:
+1. recommend_coursera_skills[student_id]: Đề xuất khóa học Coursera cho học viên.
+2. get_coursera_courses[topic]: Lấy các khóa học Coursera theo chủ đề.
 """
 
 # ReAct Agent Prompt (Ép LLM suy luận theo chuỗi Thought -> Action)
@@ -15,6 +19,10 @@ REACT_SYSTEM_PROMPT = """Bạn là một ReAct Agent thông minh có khả năng
 Danh sách các công cụ bạn có thể sử dụng:
 1. get_weather[location]: Tra cứu thời tiết hiện tại của một thành phố.
 2. search_flights[origin, destination]: Tra cứu chuyến bay giữa 2 địa điểm.
+3. get_student_profile[student_id]: Lấy thông tin cơ bản của học viên.
+4. get_student_academic_status[student_id]: Lấy trạng thái học tập của học viên.
+5. recommend_coursera_skills[student_id]: Đề xuất khóa học Coursera cho học viên.
+6. get_coursera_courses[topic]: Lấy các khóa học Coursera theo chủ đề.
 
 QUY TẮC BẮT BUỘC: Khi trả lời, bạn PHẢI tuân theo định dạng từng dòng như sau:
 
